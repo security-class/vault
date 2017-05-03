@@ -1,8 +1,13 @@
 import os
+from functools import wraps
 
+import requests
+from jose import jwt
 from redis import Redis
 from redis import ConnectionError
 from flask import Flask, Response, jsonify, request, json, url_for, make_response
+from flask_api import status
+from werkzeug.exceptions import NotFound, Unauthorized
 
 from models import Vault
 from . import app
@@ -14,42 +19,37 @@ HTTP_400_BAD_REQUEST = 400
 HTTP_404_NOT_FOUND = 404
 HTTP_409_CONFLICT = 409
 
-######################################################################
-# GET INDEX
-######################################################################
+# Decorator for protecting routes with JWT tokens
+def required_auth(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return Unauthorized("No authorization header.")
+
+            auth_type, jwt_token = auth_header.split()
+            print jwt_token
+            token = verify_token(jwt_token)
+
+            if not token:
+                return Unauthorized("Invalid JWT Token.")
+
+            for grant in token.grants.split():
+                for role in roles:
+                    if grant in role:
+                        return f(*args, **kwargs)
+
+            return Unauthorized("JWT doesn't contain required grants.")
+        return decorated
+    return decorator
+
 @app.route('/')
 def index():
     data = '{first_name: <string>, last_name: <string>, email: <string>, password: <string>}'
-    return jsonify(name='REST API Service', version='1.0', url='http://localhost:5000/', data=data), HTTP_200_OK
-    # return app.send_static_file('index.html')
-    """Sends the Swagger main HTML page to the client.
-        Returns:
-            response (Response): HTML content of static/swagger/index.html
-    """
-    # return app.send_static_file('swagger/index.html')
-    # return app.send_static_file('index.html')
-    # return jsonify(swagger(app))
-
-# @app.route('/lib/<path:path>')
-# def send_lib(path):
-#     return app.send_static_file('swagger/lib/' + path)
-#
-# @app.route('/specification/<path:path>')
-# def send_specification(path):
-#
-#     return app.send_static_file('swagger/specification/' + path)
-#
-# @app.route('/images/<path:path>')
-# def send_images(path):
-#     return app.send_static_file('swagger/images/' + path)
-#
-# @app.route('/css/<path:path>')
-# def send_css(path):
-#     return app.send_static_file('swagger/css/' + path)
-#
-# @app.route('/fonts/<path:path>')
-# def send_fonts(path):
-#     return app.send_static_file('swagger/fonts/' + path)
+    return jsonify(name='Vault REST API Service backing SAM application',
+                   version='1.0',
+                   url='pcs-sam-vault.mybluemix.net'), HTTP_200_OK
 
 @app.route('/vault', methods=['POST'])
 def create_vault():
@@ -103,6 +103,7 @@ def update_vault():
     return make_response(jsonify(message), rc)
 
 @app.route('/reset', methods=['POST'])
+@required_auth('admin')
 def reset_server():
     Vault.remove_all()
     message = {'request': 'Vault server reset.'}
@@ -119,6 +120,16 @@ def data_load(payload):
 
 def data_reset(redis):
     redis.flushall()
+
+def verify_token(token):
+    url = app.config['AUTH_BASE_URL'] + '/auth/verify'
+    payload = json.dumps({"token": token})
+    r = requests.post(url, data=payload)
+
+    if r.status_code != status.HTTP_200_OK:
+        return False
+    return True
+
 
 ######################################################################
 # Connect to Redis and catch connection exceptions

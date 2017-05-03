@@ -1,1 +1,1 @@
-web: python sam_server.py
+web: python run.py

@@ -1,2 +1,2 @@
 # Vault Service
-Server side of SAM
+Vault service backing SAM application

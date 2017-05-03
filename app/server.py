@@ -7,9 +7,6 @@ from flask import Flask, Response, jsonify, request, json, url_for, make_respons
 from models import Vault
 from . import app
 
-app = Flask(__name__)
-app.debug = True
-
 HTTP_200_OK = 200
 HTTP_201_CREATED = 201
 HTTP_204_NO_CONTENT = 204
@@ -22,7 +19,7 @@ HTTP_409_CONFLICT = 409
 ######################################################################
 @app.route('/')
 def index():
-    # data = '{first_name: <string>, last_name: <string>, email: <string>, password: <string>}'
+    data = '{first_name: <string>, last_name: <string>, email: <string>, password: <string>}'
     return jsonify(name='REST API Service', version='1.0', url='http://localhost:5000/', data=data), HTTP_200_OK
     # return app.send_static_file('index.html')
     """Sends the Swagger main HTML page to the client.
@@ -33,26 +30,26 @@ def index():
     # return app.send_static_file('index.html')
     # return jsonify(swagger(app))
 
-@app.route('/lib/<path:path>')
-def send_lib(path):
-    return app.send_static_file('swagger/lib/' + path)
-
-@app.route('/specification/<path:path>')
-def send_specification(path):
-
-    return app.send_static_file('swagger/specification/' + path)
-
-@app.route('/images/<path:path>')
-def send_images(path):
-    return app.send_static_file('swagger/images/' + path)
-
-@app.route('/css/<path:path>')
-def send_css(path):
-    return app.send_static_file('swagger/css/' + path)
-
-@app.route('/fonts/<path:path>')
-def send_fonts(path):
-    return app.send_static_file('swagger/fonts/' + path)
+# @app.route('/lib/<path:path>')
+# def send_lib(path):
+#     return app.send_static_file('swagger/lib/' + path)
+#
+# @app.route('/specification/<path:path>')
+# def send_specification(path):
+#
+#     return app.send_static_file('swagger/specification/' + path)
+#
+# @app.route('/images/<path:path>')
+# def send_images(path):
+#     return app.send_static_file('swagger/images/' + path)
+#
+# @app.route('/css/<path:path>')
+# def send_css(path):
+#     return app.send_static_file('swagger/css/' + path)
+#
+# @app.route('/fonts/<path:path>')
+# def send_fonts(path):
+#     return app.send_static_file('swagger/fonts/' + path)
 
 @app.route('/vault', methods=['POST'])
 def create_vault():

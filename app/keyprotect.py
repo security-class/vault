@@ -87,6 +87,9 @@ def gen_key(user_id):
         gen_key(user_id)
         return
 
+    response_body = request.json()
+    return response_body['resources'][0]['id']
+
 def get_key(key_id):
     url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets/" + key_id
     token = BLUEMIX_TOKEN

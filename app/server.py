@@ -84,7 +84,7 @@ def create_vault():
 @required_auth('admin user')
 def get_vault(user_id):
 
-    if not verify_user_in_request(payload['user_id'], request):
+    if not verify_user_in_request(user_id, request):
         return Unauthorized("Your authorization doesn't allow modification of this user id.")
 
     vault = Vault.find_by_user_id(user_id)

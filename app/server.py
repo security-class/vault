@@ -68,7 +68,7 @@ def create_vault():
             response = make_response(jsonify(message), rc)
             return response
 
-        vault = Vault(id, payload['user_id'])
+        vault = Vault(id, payload['user_id'], new=True)
         vault.save()
         message = vault.serialize()
         rc = HTTP_201_CREATED

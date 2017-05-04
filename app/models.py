@@ -9,6 +9,7 @@ from Crypto.Cipher import AES
 from cloudfoundry_client.client import CloudFoundryClient
 
 from . import app
+from keyprotect import cf_login
 
 authorization_header_field = 'Authorization'
 space_header_field = 'Bluemix-Space'
@@ -17,13 +18,10 @@ secret_mime_type = 'application/vnd.ibm.kms.secret+json'
 aes_algorithm_type = 'AES'
 
 def refresh_bluemix_token():
-    target_endpoint = 'https://api.ng.bluemix.net'
-    proxy = dict(http=os.environ.get('HTTP_PROXY', ''), https=os.environ.get('HTTPS_PROXY', ''))
-    client = CloudFoundryClient(target_endpoint, proxy=proxy, skip_verification=True)
-    client.init_with_user_credentials('wpp220@nyu.edu', app.config['BLUEMIX_PASS'])
-    return client.refresh_token
+    resp = cf_login('https://api.ng.bluemix.net', 'wpp220@nyu.edu', app.config['BLUEMIX_PASS'])
+    return 'bearer ' + resp
 
-# BLUEMIX_TOKEN = refresh_bluemix_token()
+BLUEMIX_TOKEN = refresh_bluemix_token()
 
 def convert(input):
     if isinstance(input, dict):
@@ -45,7 +43,8 @@ class Vault(object):
         self.data = []
         self.key_id = None
         self.base64_iv = None
-        # self.generate_encryption_key()
+        if new:
+            self.generate_encryption_key()
 
     def save(self):
         if self.id == 0:
@@ -68,9 +67,10 @@ class Vault(object):
 
     def generate_encryption_key(self):
         url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets"
-        token = 'bearer ' + BLUEMIX_TOKEN
+        token = BLUEMIX_TOKEN
         space = app.config['BLUEMIX_SPACE_GUID']
         org = app.config['BLUEMIX_ORG_GUID']
+        key_name = 'user_' + str(self.user_id) + "_vault_key"
         headers = {
             'Content-Type': 'application/json',
             authorization_header_field: token.encode('UTF-8'),
@@ -79,11 +79,11 @@ class Vault(object):
         }
 
         body = {
-          "resources": {
+          "resources": [{
             "type": 'application/vnd.ibm.kms.secret+json',
             "algorithmType": 'AES',
-            "name": 'user_' + str(self.user_id) + "_vault_key",
-          },
+            "name": key_name,
+          }],
             'metadata': {
                 'collectionType': 'application/vnd.ibm.kms.secret+json',
                 'collectionTotal': 1
@@ -97,15 +97,37 @@ class Vault(object):
             self.generate_encryption_key()
             return
 
+        print request.status_code
         response_body = request.json()
-        print status
-        print response_body
+        print
+        self.key_id = response_body['resources'][0]['id']
 
     def get_encryption_key(self):
-        return
+        url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets/" + self.key_id
+        token = BLUEMIX_TOKEN
+        space = app.config['BLUEMIX_SPACE_GUID']
+        org = app.config['BLUEMIX_ORG_GUID']
+        headers = {
+            'Content-Type': 'application/json',
+            authorization_header_field: token.encode('UTF-8'),
+            space_header_field: space.encode('UTF-8'),
+            org_header_field: org.encode('UTF-8')
+        }
+
+        request = requests.get(url, headers=headers)
+
+        if request.status_code == status.HTTP_401_UNAUTHORIZED:
+            refresh_bluemix_token()
+            self.generate_encryption_key()
+            return
+
+        response_body = request.json()
+        key = base64.b64decode(response_body['resources'][0]['payload'])
+        print key
+        return key
 
     def encrypt_data(self):
-        key = b'Sixteen byte key'
+        key = self.get_encryption_key()
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(key, AES.MODE_CFB, iv)
         encrypted_data = cipher.encrypt(json.dumps(self.data))
@@ -113,7 +135,7 @@ class Vault(object):
         self.base64_iv = base64.b64encode(iv)
 
     def decrypt_data(self):
-        key = b'Sixteen byte key'
+        key = self.get_encryption_key()
         iv = base64.b64decode(self.base64_iv)
         cipher = AES.new(key, AES.MODE_CFB, iv)
         decrypted_data = cipher.decrypt(self.data)
@@ -126,6 +148,7 @@ class Vault(object):
             id = data['id']
             vault = Vault(id, data['user_id'])
             vault.data = data['data']
+            vault.key_id = data['key_id']
             vault.base64_iv = data['base64_iv']
             vault.decrypt_data()
             return vault

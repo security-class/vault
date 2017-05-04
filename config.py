@@ -11,6 +11,7 @@ SERVICE_NAME = 'vault'
 AES_MULTIPLE = 16
 
 KEY_PROTECT_BASE_URL = 'https://ibm-key-protect.edge.bluemix.net/api/v2'
+BLUEMIX_USER = os.getenv('BLUEMIX_USER')
 BLUEMIX_PASS = os.getenv('BLUEMIX_PASS')
 BLUEMIX_ORG_GUID = os.getenv('BLUEMIX_ORG_GUID')
 BLUEMIX_SPACE_GUID = os.getenv('BLUEMIX_SPACE_GUID')

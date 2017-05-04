@@ -18,6 +18,10 @@ secret_mime_type = 'application/vnd.ibm.kms.secret+json'
 aes_algorithm_type = 'AES'
 
 def refresh_bluemix_token():
+    print app.config['BLUEMIX_USER']
+    print app.config['BLUEMIX_PASS']
+    print app.config['BLUEMIX_ORG_GUID']
+    print app.config['BLUEMIX_SPACE_GUID']
     resp = cf_login('https://api.ng.bluemix.net', app.config['BLUEMIX_USER'], app.config['BLUEMIX_PASS'])
     return 'bearer ' + resp
 

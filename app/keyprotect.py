@@ -15,9 +15,9 @@ def cf_login(endpoint, username, password):
     # Prameters to request token
     params = {}
     params['grant_type'] = 'password'
-    params['password'] = password  # your bluemix password
+    params['password'] = password
     params['scope'] = ''
-    params['username'] = username  # your bluemix username
+    params['username'] = username
 
     # Required headers
     headers = {}

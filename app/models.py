@@ -9,24 +9,9 @@ from Crypto.Cipher import AES
 from cloudfoundry_client.client import CloudFoundryClient
 
 from . import app
-from keyprotect import cf_login
+from keyprotect import cf_login, gen_key, get_key
 
-authorization_header_field = 'Authorization'
-space_header_field = 'Bluemix-Space'
-org_header_field = 'Bluemix-Org'
-secret_mime_type = 'application/vnd.ibm.kms.secret+json'
-aes_algorithm_type = 'AES'
-
-def refresh_bluemix_token():
-    print app.config['BLUEMIX_USER']
-    print app.config['BLUEMIX_PASS']
-    print app.config['BLUEMIX_ORG_GUID']
-    print app.config['BLUEMIX_SPACE_GUID']
-    resp = cf_login('https://api.ng.bluemix.net', app.config['BLUEMIX_USER'], app.config['BLUEMIX_PASS'])
-    return 'bearer ' + resp
-
-BLUEMIX_TOKEN = refresh_bluemix_token()
-
+# converts dicts to proper encoding before sending over wire
 def convert(input):
     if isinstance(input, dict):
         return {convert(key): convert(value) for key, value in input.iteritems()}
@@ -70,65 +55,10 @@ class Vault(object):
         return convert(self.__dict__)
 
     def generate_encryption_key(self):
-        url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets"
-        token = BLUEMIX_TOKEN
-        space = app.config['BLUEMIX_SPACE_GUID']
-        org = app.config['BLUEMIX_ORG_GUID']
-        key_name = 'user_' + str(self.user_id) + "_vault_key"
-        headers = {
-            'Content-Type': 'application/json',
-            authorization_header_field: token.encode('UTF-8'),
-            space_header_field: space.encode('UTF-8'),
-            org_header_field: org.encode('UTF-8')
-        }
-
-        body = {
-          "resources": [{
-            "type": 'application/vnd.ibm.kms.secret+json',
-            "algorithmType": 'AES',
-            "name": key_name,
-          }],
-            'metadata': {
-                'collectionType': 'application/vnd.ibm.kms.secret+json',
-                'collectionTotal': 1
-            }
-        }
-
-        request = requests.post(url, headers=headers, data=json.dumps(body))
-
-        if request.status_code == status.HTTP_401_UNAUTHORIZED:
-            refresh_bluemix_token()
-            self.generate_encryption_key()
-            return
-
-        print request.status_code
-        response_body = request.json()
-        print
-        self.key_id = response_body['resources'][0]['id']
+        self.key_id = gen_key(self.user_id)
 
     def get_encryption_key(self):
-        url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets/" + self.key_id
-        token = BLUEMIX_TOKEN
-        space = app.config['BLUEMIX_SPACE_GUID']
-        org = app.config['BLUEMIX_ORG_GUID']
-        headers = {
-            'Content-Type': 'application/json',
-            authorization_header_field: token.encode('UTF-8'),
-            space_header_field: space.encode('UTF-8'),
-            org_header_field: org.encode('UTF-8')
-        }
-
-        request = requests.get(url, headers=headers)
-
-        if request.status_code == status.HTTP_401_UNAUTHORIZED:
-            refresh_bluemix_token()
-            self.generate_encryption_key()
-            return
-
-        response_body = request.json()
-        key = base64.b64decode(response_body['resources'][0]['payload'])
-        print key
-        return key
+        return get_key(self.key_id)
 
     def encrypt_data(self):
         key = self.get_encryption_key()
@@ -188,7 +118,6 @@ class Vault(object):
     @staticmethod
     def findUser(redis, userID):
         data = Vault.__redis.hget('vault')
-        print(data)
         vault = data['user_id']
         if vault == userID:
             return vault

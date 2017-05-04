@@ -6,3 +6,4 @@ app.config.from_object('config')
 
 import server
 import models
+import keyprotect

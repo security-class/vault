@@ -76,7 +76,6 @@ def create_vault():
         message = {'error':'Not a valid vault request'}
         rc = HTTP_400_BAD_REQUEST
 
-    print message
     response = make_response(jsonify(message), rc)
 
     return response
@@ -91,13 +90,11 @@ def get_vault(user_id):
     vault = Vault.find_by_user_id(user_id)
     if vault:
         message = vault.serialize()
-        print message
         rc = HTTP_200_OK
     else:
         message = {'error' : 'Vault does not exist'}
         rc = HTTP_404_NOT_FOUND
 
-    print json.dumps(message)
     return make_response(jsonify(message), rc)
 
 @app.route('/vault', methods=['PUT'])

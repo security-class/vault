@@ -8,6 +8,8 @@ class Vault(object):
         self.id = id
         self.user_id = user_id
         self.data = []
+        self.key_id = None
+        self.salt = None
 
     def save(self):
         if self.id == 0:
@@ -30,7 +32,9 @@ class Vault(object):
         id = 0
         if data.has_key('id'):
             id = data['id']
-            return Vault(id, data['user_id'])
+            vault = Vault(id, data['user_id'])
+            vault.data = data['data']
+            return vault
 
     @staticmethod
     def validate(data):

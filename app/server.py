@@ -56,6 +56,9 @@ def index():
 def create_vault():
     id = 0
     payload = request.get_json()
+    print('--------PAYLOAD--------')
+    print payload
+    print('-----------------------')
 
     if not verify_user_in_request(payload['user_id'], request):
         return Unauthorized("Your authorization doesn't allow modification of this user id.")

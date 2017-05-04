@@ -7,6 +7,9 @@ from flask_api import status
 
 from . import app
 
+# This file defines methods for interacting with IBM Bluemix keyprotect
+# KeyProtect is a hardware-based secure encryption key generator and key store
+
 authorization_header_field = 'Authorization'
 space_header_field = 'Bluemix-Space'
 org_header_field = 'Bluemix-Org'

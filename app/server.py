@@ -29,13 +29,14 @@ def required_auth(*roles):
                 return Unauthorized("No authorization header.")
 
             auth_type, jwt_token = auth_header.split()
-            print jwt_token
-            token = verify_token(jwt_token)
+            is_valid = verify_token(jwt_token)
 
-            if not token:
+            if not is_valid:
                 return Unauthorized("Invalid JWT Token.")
 
-            for grant in token.grants.split():
+            token = jwt.get_unverified_claims(jwt_token)
+
+            for grant in token['grants']:
                 for role in roles:
                     if grant in role:
                         return f(*args, **kwargs)
@@ -46,15 +47,19 @@ def required_auth(*roles):
 
 @app.route('/')
 def index():
-    data = '{first_name: <string>, last_name: <string>, email: <string>, password: <string>}'
     return jsonify(name='Vault REST API Service backing SAM application',
                    version='1.0',
                    url='pcs-sam-vault.mybluemix.net'), HTTP_200_OK
 
 @app.route('/vault', methods=['POST'])
+@required_auth('admin user')
 def create_vault():
     id = 0
     payload = request.get_json()
+
+    if not verify_user_in_request(payload['user_id'], request):
+        return Unauthorized("Your authorization doesn't allow modification of this user id.")
+
     if Vault.validate(payload):
         exists = Vault.find_by_user_id(payload['user_id'])
         if exists:
@@ -76,7 +81,12 @@ def create_vault():
     return response
 
 @app.route('/vault/<int:user_id>', methods=['GET'])
+@required_auth('admin user')
 def get_vault(user_id):
+
+    if not verify_user_in_request(payload['user_id'], request):
+        return Unauthorized("Your authorization doesn't allow modification of this user id.")
+
     vault = Vault.find_by_user_id(user_id)
     if vault:
         message = vault.serialize()
@@ -87,11 +97,15 @@ def get_vault(user_id):
     return make_response(jsonify(message), rc)
 
 @app.route('/vault', methods=['PUT'])
+@required_auth('admin user')
 def update_vault():
     payload = request.get_json()
+
+    if not verify_user_in_request(payload['user_id'], request):
+        return Unauthorized("Your authorization doesn't allow modification of this user id.")
+
     vault = Vault.find_by_user_id(payload['user_id'])
     if vault:
-        print(type(vault))
         vault.data = payload['data']
         vault.save()
         message = vault.serialize()
@@ -99,7 +113,6 @@ def update_vault():
     else:
         message = {'error' : 'Vault does not exist'}
         rc = HTTP_404_NOT_FOUND
-    print(Vault.all())
     return make_response(jsonify(message), rc)
 
 @app.route('/reset', methods=['POST'])
@@ -123,13 +136,27 @@ def data_reset(redis):
 
 def verify_token(token):
     url = app.config['AUTH_BASE_URL'] + '/auth/verify'
-    payload = json.dumps({"token": token})
-    r = requests.post(url, data=payload)
+    headers = {'Authorization': 'bearer ' + token}
+    r = requests.post(url, headers=headers)
 
     if r.status_code != status.HTTP_200_OK:
         return False
     return True
 
+def verify_user_in_request(user_id, request):
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header:
+        return Unauthorized("No authorization header.")
+
+    auth_type, jwt_token = auth_header.split()
+    is_valid = verify_token(jwt_token)
+
+    if not is_valid:
+        return Unauthorized("Invalid JWT Token.")
+
+    token = jwt.get_unverified_claims(jwt_token)
+    return token['user_id'] == user_id
 
 ######################################################################
 # Connect to Redis and catch connection exceptions

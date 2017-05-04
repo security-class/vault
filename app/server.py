@@ -34,9 +34,9 @@ def required_auth(*roles):
             if not is_valid:
                 return Unauthorized("Invalid JWT Token.")
 
-            token = jwt.get_unverified_claims(jwt_token)
+            token_data = jwt.get_unverified_claims(jwt_token)
 
-            for grant in token['grants']:
+            for grant in token_data['grants']:
                 for role in roles:
                     if grant in role:
                         return f(*args, **kwargs)
@@ -76,6 +76,7 @@ def create_vault():
         message = {'error':'Not a valid vault request'}
         rc = HTTP_400_BAD_REQUEST
 
+    print message
     response = make_response(jsonify(message), rc)
 
     return response
@@ -90,10 +91,13 @@ def get_vault(user_id):
     vault = Vault.find_by_user_id(user_id)
     if vault:
         message = vault.serialize()
+        print message
         rc = HTTP_200_OK
     else:
         message = {'error' : 'Vault does not exist'}
         rc = HTTP_404_NOT_FOUND
+
+    print json.dumps(message)
     return make_response(jsonify(message), rc)
 
 @app.route('/vault', methods=['PUT'])
@@ -170,13 +174,6 @@ def connect_to_redis(hostname, port, password):
     return redis
 
 
-######################################################################
-# INITIALIZE Redis
-# This method will work in the following conditions:
-#   1) In Bluemix with Redis bound through VCAP_SERVICES
-#   2) With Redis running on the local server as with Travis CI
-#   3) With Redis --link ed in a Docker container called 'redis'
-######################################################################
 def initialize_redis():
     global redis
     redis = None

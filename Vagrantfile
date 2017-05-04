@@ -47,6 +47,7 @@ Vagrant.configure("2") do |config|
     # Install app dependencies
     cd /vagrant
     sudo pip install -r requirements.txt
+    # bluemix key protect credentials
   SHELL
 
   ######################################################################
@@ -57,7 +58,6 @@ Vagrant.configure("2") do |config|
     sudo mkdir -p /var/lib/redis/data
     sudo chown vagrant:vagrant /var/lib/redis/data
   SHELL
-
   # Add Redis docker container
   config.vm.provision "docker" do |d|
     d.pull_images "redis:alpine"

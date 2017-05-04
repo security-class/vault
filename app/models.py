@@ -1,20 +1,59 @@
+import base64
+import json
+import os
+
+import requests
+from flask_api import status
+from Crypto import Random
+from Crypto.Cipher import AES
+from cloudfoundry_client.client import CloudFoundryClient
+
 from . import app
+
+authorization_header_field = 'Authorization'
+space_header_field = 'Bluemix-Space'
+org_header_field = 'Bluemix-Org'
+secret_mime_type = 'application/vnd.ibm.kms.secret+json'
+aes_algorithm_type = 'AES'
+
+def refresh_bluemix_token():
+    target_endpoint = 'https://api.ng.bluemix.net'
+    proxy = dict(http=os.environ.get('HTTP_PROXY', ''), https=os.environ.get('HTTPS_PROXY', ''))
+    client = CloudFoundryClient(target_endpoint, proxy=proxy, skip_verification=True)
+    client.init_with_user_credentials('wpp220@nyu.edu', app.config['BLUEMIX_PASS'])
+    return client.refresh_token
+
+# BLUEMIX_TOKEN = refresh_bluemix_token()
+
+def convert(input):
+    if isinstance(input, dict):
+        return {convert(key): convert(value) for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [convert(element) for element in input]
+    elif isinstance(input, unicode):
+        return input.encode('utf-8')
+    else:
+        return input
 
 class Vault(object):
 
     __redis = None
 
-    def __init__(self, id, user_id):
+    def __init__(self, id, user_id, new=False):
         self.id = id
         self.user_id = user_id
         self.data = []
         self.key_id = None
-        self.salt = None
+        self.base64_iv = None
+        # self.generate_encryption_key()
 
     def save(self):
         if self.id == 0:
             self.id = self.__next_index()
+        temp_data = self.data
+        self.encrypt_data()
         self.__redis.hmset(self.id, self.serialize())
+        self.data = temp_data
 
     def delete(self):
         self.__redis.delete(self.id)
@@ -25,7 +64,60 @@ class Vault(object):
         return index
 
     def serialize(self):
-        return self.__dict__
+        return convert(self.__dict__)
+
+    def generate_encryption_key(self):
+        url = "https://ibm-key-protect.edge.bluemix.net/api/v2/secrets"
+        token = 'bearer ' + BLUEMIX_TOKEN
+        space = app.config['BLUEMIX_SPACE_GUID']
+        org = app.config['BLUEMIX_ORG_GUID']
+        headers = {
+            'Content-Type': 'application/json',
+            authorization_header_field: token.encode('UTF-8'),
+            space_header_field: space.encode('UTF-8'),
+            org_header_field: org.encode('UTF-8')
+        }
+
+        body = {
+          "resources": {
+            "type": 'application/vnd.ibm.kms.secret+json',
+            "algorithmType": 'AES',
+            "name": 'user_' + str(self.user_id) + "_vault_key",
+          },
+            'metadata': {
+                'collectionType': 'application/vnd.ibm.kms.secret+json',
+                'collectionTotal': 1
+            }
+        }
+
+        request = requests.post(url, headers=headers, data=json.dumps(body))
+
+        if request.status_code == status.HTTP_401_UNAUTHORIZED:
+            refresh_bluemix_token()
+            self.generate_encryption_key()
+            return
+
+        response_body = request.json()
+        print status
+        print response_body
+
+    def get_encryption_key(self):
+        return
+
+    def encrypt_data(self):
+        key = b'Sixteen byte key'
+        iv = Random.new().read(AES.block_size)
+        cipher = AES.new(key, AES.MODE_CFB, iv)
+        encrypted_data = cipher.encrypt(json.dumps(self.data))
+        self.data = encrypted_data
+        self.base64_iv = base64.b64encode(iv)
+
+    def decrypt_data(self):
+        key = b'Sixteen byte key'
+        iv = base64.b64decode(self.base64_iv)
+        cipher = AES.new(key, AES.MODE_CFB, iv)
+        decrypted_data = cipher.decrypt(self.data)
+        self.data = decrypted_data
 
     @staticmethod
     def from_dict(data):
@@ -34,6 +126,8 @@ class Vault(object):
             id = data['id']
             vault = Vault(id, data['user_id'])
             vault.data = data['data']
+            vault.base64_iv = data['base64_iv']
+            vault.decrypt_data()
             return vault
 
     @staticmethod

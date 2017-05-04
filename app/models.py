@@ -42,6 +42,7 @@ class Vault(object):
         self.encrypt_data()
         self.__redis.hmset(self.id, self.serialize())
         self.data = temp_data
+        print('vault for user_id ' + str(self.user_id) + ' created')
 
     def delete(self):
         self.__redis.delete(self.id)
@@ -109,6 +110,8 @@ class Vault(object):
 
     @staticmethod
     def find_by_user_id(id):
+        print("HERE ID")
+        print(id)
         if Vault.__redis.exists(id):
             data = Vault.__redis.hgetall(id)
             return Vault.from_dict(data)

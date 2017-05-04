@@ -69,6 +69,7 @@ def create_vault():
             return response
 
         vault = Vault(id, payload['user_id'], new=True)
+        print('vault with for uid' + str(payload['user_id']) + 'created')
         vault.save()
         message = vault.serialize()
         rc = HTTP_201_CREATED

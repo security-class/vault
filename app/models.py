@@ -85,7 +85,7 @@ class Vault(object):
             vault.key_id = data['key_id']
             vault.base64_iv = data['base64_iv']
             vault.decrypt_data()
-            vault.data = json.loads(vault.data)
+            # vault.data = json.loads(vault.data)
             return vault
 
     @staticmethod

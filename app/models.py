@@ -82,11 +82,12 @@ class Vault(object):
         id = 0
         if data.has_key('id'):
             id = int(data['id'])
-            vault = Vault(id, data['user_id'])
-            vault.data = json.loads(data['data'])
+            vault = Vault(id, int(data['user_id']))
+            vault.data = data['data']
             vault.key_id = data['key_id']
             vault.base64_iv = data['base64_iv']
             vault.decrypt_data()
+            vault.data = json.loads(vault.data)
             return vault
 
     @staticmethod
@@ -110,14 +111,13 @@ class Vault(object):
             return None
 
     @staticmethod
-    def find_by_user_id(id):
-        print("HERE ID")
-        print(id)
-        id = str(id)
-        if Vault.__redis.exists(id):
-            print("FOUND THE ID")
-            data = Vault.__redis.hgetall(id)
-            return Vault.from_dict(data)
+    def find_by_user_id(user_id):
+        for key in Vault.__redis.keys():
+            if key != 'index':
+                data = Vault.__redis.hgetall(key)
+                print data
+                if data['user_id'] == str(user_id):
+                    return Vault.from_dict(data)
         else:
             return None
 

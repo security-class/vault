@@ -41,6 +41,7 @@ class Vault(object):
         temp_data = self.data
         self.encrypt_data()
         self.__redis.hmset(self.id, self.serialize())
+        print self.serialize()
         self.data = temp_data
         print('vault for user_id ' + str(self.user_id) + ' created')
 
@@ -112,6 +113,7 @@ class Vault(object):
     def find_by_user_id(id):
         print("HERE ID")
         print(id)
+        id = str(id)
         if Vault.__redis.exists(id):
             print("FOUND THE ID")
             data = Vault.__redis.hgetall(id)

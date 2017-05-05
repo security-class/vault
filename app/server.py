@@ -52,7 +52,7 @@ def index():
                    url='pcs-sam-vault.mybluemix.net'), HTTP_200_OK
 
 @app.route('/vault', methods=['POST'])
-# @required_auth('admin user')
+@required_auth('admin user')
 def create_vault():
     id = 0
     payload = request.get_json()
@@ -69,7 +69,6 @@ def create_vault():
             return response
 
         vault = Vault(id, payload['user_id'], new=True)
-        print('vault with for uid' + str(payload['user_id']) + 'created')
         vault.save()
         message = vault.serialize()
         rc = HTTP_201_CREATED
@@ -82,7 +81,7 @@ def create_vault():
     return response
 
 @app.route('/vault/<int:user_id>', methods=['GET'])
-# @required_auth('admin user')
+@required_auth('admin user')
 def get_vault(user_id):
 
     if not verify_user_in_request(user_id, request):

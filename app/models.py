@@ -80,9 +80,9 @@ class Vault(object):
     def from_dict(data):
         id = 0
         if data.has_key('id'):
-            id = data['id']
+            id = int(data['id'])
             vault = Vault(id, data['user_id'])
-            vault.data = data['data']
+            vault.data = json.loads(data['data'])
             vault.key_id = data['key_id']
             vault.base64_iv = data['base64_iv']
             vault.decrypt_data()
@@ -113,6 +113,7 @@ class Vault(object):
         print("HERE ID")
         print(id)
         if Vault.__redis.exists(id):
+            print("FOUND THE ID")
             data = Vault.__redis.hgetall(id)
             return Vault.from_dict(data)
         else:
